@@ -1,0 +1,21 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "title": "jh-recsynclib_rec_def",
+    "description": "A JazzHands Record Definition",
+    "type": "object",
+    "required": ["required_attributes", "optional_attributes", "primary_keys"],
+    "properties": {
+        "required_attributes": {
+            "type": "array",
+            "items": {"type": "string"}
+        },
+        "optional_attributes": {
+            "type": "array",
+            "items": {"type": "string"}
+        },
+        "primary_keys": {
+            "type": "array",
+            "items": {"type": "string"}
+        }
+    }
+}
