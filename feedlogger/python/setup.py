@@ -14,10 +14,16 @@
 # limitations under the License.
 
 import subprocess
-from distutils.core import setup
+from setuptools import setup, find_packages
 
 # this should be pulled in automatically
-version = '0.1.0'
+version = '0.1.0.1'
+
+with open('README.md') as f:
+    readme = f.read()
+
+with open('LICENSE') as f:
+    license = f.read()
 
 classifiers = [
     "Topic :: Utilities",
@@ -28,13 +34,11 @@ setup(
     name = 'jazzhands-feedlogger',
     description = 'Low level library for recording feed events to JazzHands feedlog',
     version = version,
-    long_description = """Contains library for interacting with the feedlog extension to JazzHands.
-Raw interface for creating a session, adding events and thier attributes.""",
-    license = 'APLv2',
+    long_description = readme,
+    license = license,
     url = 'http://www.jazzhands.net/',
-    author = 'rdw',
-    author_email = 'rdw@drws-office.com',
-    package_dir = {'': 'src/lib'},
-    packages = ['jazzhands_extensions'],
+    author = 'Ryan D Williams',
+    author_email = 'xrxdxwx@gmail.com',
+    packages = find_packages(),
     classifiers = classifiers,
 )
