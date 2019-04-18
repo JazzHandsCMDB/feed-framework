@@ -35,6 +35,6 @@ Raw interface for creating a session, adding events and thier attributes.""",
     author = 'rdw',
     author_email = 'rdw@drws-office.com',
     package_dir = {'': 'src/lib'},
-    packages = ['jazzhands_extensions'],
+    packages = ['jazzhands_feedlogger'],
     classifiers = classifiers,
 )
