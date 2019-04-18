@@ -14,10 +14,16 @@
 # limitations under the License.
 
 import subprocess
-from distutils.core import setup
+from setuptools import setup, find_packages
 
 # this should be pulled in automatically
 version = '0.1.0'
+
+with open('README.md') as f:
+    readme = f.read()
+
+with open('LICENSE') as f:
+    license = f.read()
 
 classifiers = [
     "Topic :: Utilities",
@@ -28,12 +34,12 @@ setup(
     name = 'jh-recsynclib',
     version = version,
     description = 'JazzHands Record Synchronization Library',
+    long_description = readme,
     author = 'Ryan D Williams',
     author_email = 'xrxdxwx@gmail.com',
-    license = 'Apache-2.0',
+    license = license,
     url = 'http://www.jazzhands.net/',
-    packages = ['jh_recsynclib'],
-    package_dir = {'': 'src'},
+    packages = find_packages(),
     package_data = {'jh_recsynclib': ['json_schema/*.json']},
     classifiers = classifiers
 )
