@@ -222,7 +222,7 @@ class SyncBase(object):                     # pylint: disable=too-many-instance-
                 except ImportError:
                     raise PackageError('DB functionality requires jazzhands_appauthal package')
                 self.dbh = JHDBRecordInterface(
-                    self._conf['appauthal_app_name'], record_type)
+                    self._conf['appauthal_app_name'], record_type, conf=self._conf)
             except KeyError:
                 raise SyncException(
                     'use_jazzhands_db option requires you to provide appauthal_app_name as well')

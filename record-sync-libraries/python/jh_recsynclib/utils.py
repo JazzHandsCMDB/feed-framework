@@ -22,7 +22,10 @@ __author__ = 'Ryan D. Williams <rdw@drws-office.com>'
 # Standard library imports
 import os
 import json
+import sys
+from collections import OrderedDict
 from copy import deepcopy
+from csv import reader as _reader, DictReader as _DictReader
 
 # Third-party imports
 import pkg_resources
@@ -428,3 +431,42 @@ class JHRecordFactoryException(Exception):
 class JHRecordException(Exception):
     """Exception class for JHRecord issues"""
     pass
+
+
+def csv_empty_string_to_null(reader):
+    '''This is a util that will replace empty strings in CSV readers with None'''
+    if isinstance(reader, type(_reader)):
+        return [[val or None for val in row] for row in reader]
+    else:
+        if sys.version_info[:2] > (3, 5):
+            return [{key: val or None for key, val in row.items()} for row in reader]
+        rows = []
+        for row in reader:
+            new_dict = OrderedDict()
+            for k, v in row.items():
+                new_dict.update({k: v or None})
+            rows.append(new_dict)
+        return rows
+
+
+class DictReader(_DictReader):
+    '''This is a wrapper for DictReader on systems running Python versions 3.5 or earlier'''
+    def __init__(self, f, fieldnames=None, restkey=None, restval=None, dialect="excel", *args, **kwds):
+        super(DictReader, self).__init__(f, fieldnames, restkey, restval, dialect, *args, **kwds)
+
+    def __next__(self):
+        if self.line_num == 0:
+            self.fieldnames
+        row = next(self.reader)
+        self.line_num = self.reader.line_num
+        while row == []:
+            row = next(self.reader)
+        d = OrderedDict(zip(self.fieldnames, row))
+        lf = len(self.fieldnames)
+        lr = len(row)
+        if lf < lr:
+            d[self.restkey] = row[lf:]
+        elif lf > lr:
+            for key in self.fieldnames[lr:]:
+                d[key] = self.restval
+        return d

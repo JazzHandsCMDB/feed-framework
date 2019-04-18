@@ -83,7 +83,7 @@ class JHDBRecordInterface(JHDBI):
     """Superclass of JHDBI adding helper functions for working with
     JHRecords"""
 
-    def __init__(self, app_name, record_type=None, table_map=None):
+    def __init__(self, app_name, record_type=None, table_map=None, **kwargs):
         """Inits a JHDBRecordInterface.
 
         Args:
@@ -94,7 +94,10 @@ class JHDBRecordInterface(JHDBI):
         self.record_type = record_type
         self._table_map = None
         self.set_table_map(table_map)
-        super(JHDBRecordInterface, self).__init__(app_name, psycopg2_cursor_factory='DictCursor')
+        kwargs.update({
+            'psycopg2_cursor_factory': 'DictCursor'
+        })
+        super(JHDBRecordInterface, self).__init__(app_name, **kwargs)
 
     def set_table_map(self, table_map=None):
         """Sets the attribute map
@@ -189,6 +192,8 @@ class JHDBRecordInterface(JHDBI):
             atr_str = '(' + ','.join((i[0] for i in avt)) + ')'
             val_str = '(' + ('%s,'*len(avt))[:-1] + ')'
             val_arr += [i[1] for i in avt]
+        if len(t_pkeys) == 0:
+            t_pkeys.append(self._args['conf']['default_pkey'])
         if len(t_pkeys) == 1:
             pkey = t_pkeys[0]
             w_str = '{} = %s'.format(pkey)
