@@ -136,7 +136,8 @@ class JHDBRecordInterface(JHDBI):
             record_type = self.record_type
         dbc = self.get_cursor()
         dbc.execute(qry)
-        rec_factory = JHRecordFactory(record_type, db_handle=self.copy())
+        new_dbh = JHDBRecordInterface(self._app_name, record_type=self.record_type, table_map=self._table_map)
+        rec_factory = JHRecordFactory(record_type, db_handle=new_dbh)
         records = {rec_factory.create(row) for row in dbc.fetchall()}
         dbc.close()
         self.commit()
