@@ -17,7 +17,7 @@ import subprocess
 from setuptools import setup, find_packages
 
 # this should be pulled in automatically
-version = '0.1.2'
+version = '0.2.0'
 
 with open('README.md') as f:
     readme = f.read()

@@ -32,6 +32,22 @@ import pkg_resources
 import jsonschema
 
 
+def csv_empty_string_to_null(reader):
+    '''This is a util that will replace empty strings in CSV readers with None'''
+    if isinstance(reader, type(_reader)):
+        return [[val or None for val in row] for row in reader]
+    else:
+        if sys.version_info[:2] > (3, 5):
+            return [{key: val or None for key, val in row.items()} for row in reader]
+        rows = []
+        for row in reader:
+            new_dict = OrderedDict()
+            for k, v in row.items():
+                new_dict.update({k: v or None})
+            rows.append(new_dict)
+        return rows
+
+
 class TemplatedDict(dict):
     """Dictionary that defaults to returning only keys in its template.
 
@@ -251,6 +267,11 @@ class JHRecord(TemplatedDict):
         return [key for key in self.required_attributes if key not in self]
 
 
+class JHRecordException(Exception):
+    """Exception class for JHRecord issues"""
+    pass
+
+
 class JHRecordFactory(object):
     """Creates JHRecords and sets configuration from JH.
 
@@ -365,6 +386,11 @@ class JHRecordFactory(object):
         return JHRecord(conf, *args, **kwargs)
 
 
+class JHRecordFactoryException(Exception):
+    """For JHRecordFactory exceptions"""
+    pass
+
+
 class JHRecordSyncConfigValidator(object):
     """JHRecordSyncConfigValidator Class
 
@@ -423,32 +449,6 @@ class ConfigError(Exception):
         super(ConfigError, self).__init__(message, *args, **kwargs)
 
 
-class JHRecordFactoryException(Exception):
-    """For JHRecordFactory exceptions"""
-    pass
-
-
-class JHRecordException(Exception):
-    """Exception class for JHRecord issues"""
-    pass
-
-
-def csv_empty_string_to_null(reader):
-    '''This is a util that will replace empty strings in CSV readers with None'''
-    if isinstance(reader, type(_reader)):
-        return [[val or None for val in row] for row in reader]
-    else:
-        if sys.version_info[:2] > (3, 5):
-            return [{key: val or None for key, val in row.items()} for row in reader]
-        rows = []
-        for row in reader:
-            new_dict = OrderedDict()
-            for k, v in row.items():
-                new_dict.update({k: v or None})
-            rows.append(new_dict)
-        return rows
-
-
 class DictReader(_DictReader):
     '''This is a wrapper for DictReader on systems running Python versions 3.5 or earlier'''
     def __init__(self, f, fieldnames=None, restkey=None, restval=None, dialect="excel", *args, **kwds):
@@ -470,3 +470,137 @@ class DictReader(_DictReader):
             for key in self.fieldnames[lr:]:
                 d[key] = self.restval
         return d
+
+
+class Transformer(object):
+
+    def __init__(self, config):
+        self.conf = config
+    
+    def split_string(self, _str, delimiter):
+        """splits the supplied string on the delimiter"""
+        try:
+            return _str.split(delimiter)
+        except AttributeError:
+            return [_str]
+    
+    def get_index(self, _list, _index):
+        """returns the list item at the requested index"""
+        if not _list:
+            return _list
+        return _list[_index]
+    
+
+    #GENERALIZE ME
+    def prep_date_filter(self, date_obj):
+        """takes the date_obj from a filter definition and returns a datetime object to compare
+        something against"""
+        if 'date' in date_obj:
+            return datetime.strptime(date_obj['date'], '%Y-%m-%d')
+        else:
+            return datetime.now() + timedelta(**date_obj)
+
+    def apply_rule_set(self, worker, rule_set, label=None):
+        """take a list of rules and apply them to the worker in order to return a processed
+        value"""
+        #return the string or None if the rule_set isn't a rule_set but a static value
+        _work = worker
+        if isinstance(rule_set, str) or not rule_set:
+            return rule_set
+        # convience feature. allows for calling a single rule without the array if you want
+        if isinstance(rule_set, dict):
+            rule_set = [rule_set]
+        for rule in rule_set:
+            if len(rule.keys()) != 1:
+                raise TransformerException("rule definitions must contain one and only one property") 
+            _key = list(rule.keys())[0]
+            _work = getattr(self, 'rule_{}'.format(_key))(_work, rule[_key])
+        if label:
+            worker['_processed_fields'][label] = _work
+        return _work
+    
+    def rule_function(self, _work, args):
+        """does the thing for function rules. this is pretty generic"""
+        if isinstance(args, str):
+            return getattr(self, args)(_work)
+        return getattr(self, args[0])(_work, *args[1:])
+    
+    def rule_data(self, _dict, path):
+        """takes the nested dict to retrieve a value from and a list of strings that represent
+        the path to the desired value transversing over the nested dicts"""
+        LOGGER.debug('rule: data')
+        if not _dict:
+            LOGGER.debug('_dict empty, returning')
+            return
+        return self.get_value(_dict, path)
+    
+    def rule_map(self, _val, _map):
+        """take value and looks up its mapped value from the passed _map"""
+        return self.conf['maps'][_map].get(_val)
+    
+    def rule_copy(self, worker, field):
+        """takes a worker and a processed field to copy/return"""
+        if field in worker['_processed_fields']:
+            return worker['_processed_fields'][field]
+        return self.apply_rule_set(worker, self.conf['rule_set'][field])
+    
+    def rule_coalesce(self, _work, rule_sets):
+        """takes an object and applies the rule sets in order. returns the first non None value"""
+        for _rs in rule_sets:
+            result = self.apply_rule_set(_work, _rs)
+            if result:
+                return result
+    
+    def rule_default(self, _cur_val, _default_val):
+        """just returns what was passed in"""
+        if _cur_val:
+            return _cur_val
+        else:
+            return _default_val
+
+    def rule_multiply(self, _val, _multiple):
+        """multiplies the values, converts to int and returns"""
+        LOGGER.debug('rule_multiply: _val: %s, _multiple: %s', _val, _multiple)
+        if not _val:
+            LOGGER.debug('_val empty, returning')
+            return
+        return int(float(_val) * float(_multiple))
+    
+    def rule_drt(self, _val, _drt_field):
+        """takes the supplied value and looks up agains the supplied field map from DRT"""
+        return self._drt.get_value_from_map(_drt_field, _val)
+    
+    def rule_filter(self, worker, filters):
+        """takes a worker and returns them if they don't match the filter provided.
+        
+        filter: list of dicts
+            {'key': rule_set, 'values': ['things_to_match']}
+        """
+        LOGGER.debug('filter rule')
+        for _filter in filters:
+            _filter_hit = False
+            if ('match' in _filter and
+                    self.apply_rule_set(worker, _filter['rules']) in _filter['match']):
+                _filter_hit = True
+            elif ('not_match' in _filter and
+                    self.apply_rule_set(worker, _filter['rules']) not in _filter['not_match']):
+                _filter_hit = True
+            elif 'after' in _filter or 'before' in _filter:
+                term_date = self.apply_rule_set(worker, _filter['rules'])
+                if term_date:
+                    term_date = datetime.strptime(term_date, '%Y-%m-%d')
+                    if _filter.get('after'):
+                        if term_date > self.prep_date_filter(_filter['after']):
+                            _filter_hit = True
+                    elif _filter.get('before'):
+                        if term_date < self.prep_date_filter(_filter['before']):
+                            _filter_hit = True
+            if _filter_hit:
+                LOGGER.debug('hit filter. filter: %s', _filter)
+                if _filter['action'] == 'keep':
+                    return
+                elif _filter['action'] == 'remove':
+                    raise FilterMatch(worker)
+
+class TransformerException(Exception):
+    pass
