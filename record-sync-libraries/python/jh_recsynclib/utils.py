@@ -19,17 +19,24 @@ Helper classes for creating and manipulating JH records
 
 __author__ = 'Ryan D. Williams <rdw@drws-office.com>'
 
+
 # Standard library imports
 import os
-import json
 import sys
-from collections import OrderedDict
-from copy import deepcopy
+import json
+import logging
+import datetime
 from csv import reader as _reader, DictReader as _DictReader
+from copy import deepcopy
+from collections import OrderedDict
+
 
 # Third-party imports
-import pkg_resources
 import jsonschema
+import pkg_resources
+
+
+LOG = logging.getLogger(__name__)
 
 
 def csv_empty_string_to_null(reader):
@@ -476,7 +483,23 @@ class Transformer(object):
 
     def __init__(self, config):
         self.conf = config
+        if 'appauthal_app_name' in self.conf:
+            from db import JHDBTransformerInterface
+            self._drt = JHDBTransformerInterface(self.conf['appauthal_app_name'])
+        else:
+            self _drt = None
     
+    def get_value(self, _dict, path):
+        """takes a nested dict and a list representing the key path needed to
+        retrieve the value needed"""
+        cur_val = _dict.get(path[0])
+        if not cur_val:
+            LOG.debug('requested key not found: %s', path[0])
+            return
+        if len(path) == 1:
+            return cur_val
+        return self.get_value(cur_val, path[1:])
+
     def split_string(self, _str, delimiter):
         """splits the supplied string on the delimiter"""
         try:
@@ -490,21 +513,19 @@ class Transformer(object):
             return _list
         return _list[_index]
     
-
-    #GENERALIZE ME
     def prep_date_filter(self, date_obj):
         """takes the date_obj from a filter definition and returns a datetime object to compare
         something against"""
         if 'date' in date_obj:
-            return datetime.strptime(date_obj['date'], '%Y-%m-%d')
+            return datetime.datetime.strptime(date_obj['date'], '%Y-%m-%d')
         else:
-            return datetime.now() + timedelta(**date_obj)
+            return datetime.datetime.now() + datetime.timedelta(**date_obj)
 
-    def apply_rule_set(self, worker, rule_set, label=None):
-        """take a list of rules and apply them to the worker in order to return a processed
+    def apply_rule_set(self, record, rule_set, label=None):
+        """take a list of rules and apply them to the record in order to return a processed
         value"""
         #return the string or None if the rule_set isn't a rule_set but a static value
-        _work = worker
+        _rec = record
         if isinstance(rule_set, str) or not rule_set:
             return rule_set
         # convience feature. allows for calling a single rule without the array if you want
@@ -514,23 +535,23 @@ class Transformer(object):
             if len(rule.keys()) != 1:
                 raise TransformerException("rule definitions must contain one and only one property") 
             _key = list(rule.keys())[0]
-            _work = getattr(self, 'rule_{}'.format(_key))(_work, rule[_key])
+            _rec = getattr(self, 'rule_{}'.format(_key))(_rec, rule[_key])
         if label:
-            worker['_processed_fields'][label] = _work
-        return _work
+            record['_processed_fields'][label] = _rec
+        return _rec
     
-    def rule_function(self, _work, args):
+    def rule_function(self, _rec, args):
         """does the thing for function rules. this is pretty generic"""
         if isinstance(args, str):
-            return getattr(self, args)(_work)
-        return getattr(self, args[0])(_work, *args[1:])
+            return getattr(self, args)(_rec)
+        return getattr(self, args[0])(_rec, *args[1:])
     
-    def rule_data(self, _dict, path):
+    def rule_nested_value(self, _dict, path):
         """takes the nested dict to retrieve a value from and a list of strings that represent
         the path to the desired value transversing over the nested dicts"""
-        LOGGER.debug('rule: data')
+        LOG.debug('rule: nested_value')
         if not _dict:
-            LOGGER.debug('_dict empty, returning')
+            LOG.debug('_dict empty, returning')
             return
         return self.get_value(_dict, path)
     
@@ -538,16 +559,16 @@ class Transformer(object):
         """take value and looks up its mapped value from the passed _map"""
         return self.conf['maps'][_map].get(_val)
     
-    def rule_copy(self, worker, field):
+    def rule_copy(self, record, field):
         """takes a worker and a processed field to copy/return"""
-        if field in worker['_processed_fields']:
-            return worker['_processed_fields'][field]
-        return self.apply_rule_set(worker, self.conf['rule_set'][field])
+        if field in record['_processed_fields']:
+            return record['_processed_fields'][field]
+        return self.apply_rule_set(record, self.conf['rule_set'][field])
     
-    def rule_coalesce(self, _work, rule_sets):
+    def rule_coalesce(self, _rec, rule_sets):
         """takes an object and applies the rule sets in order. returns the first non None value"""
         for _rs in rule_sets:
-            result = self.apply_rule_set(_work, _rs)
+            result = self.apply_rule_set(_rec, _rs)
             if result:
                 return result
     
@@ -560,15 +581,17 @@ class Transformer(object):
 
     def rule_multiply(self, _val, _multiple):
         """multiplies the values, converts to int and returns"""
-        LOGGER.debug('rule_multiply: _val: %s, _multiple: %s', _val, _multiple)
+        LOG.debug('rule_multiply: _val: %s, _multiple: %s', _val, _multiple)
         if not _val:
-            LOGGER.debug('_val empty, returning')
+            LOG.debug('_val empty, returning')
             return
         return int(float(_val) * float(_multiple))
     
     def rule_drt(self, _val, _drt_field):
         """takes the supplied value and looks up agains the supplied field map from DRT"""
-        return self._drt.get_value_from_map(_drt_field, _val)
+        if not self._drt:
+            raise TransformerException('DRT rule requested but no DB connection configured')
+        self._drt.get_value_from_map(_drt_field, _val)
     
     def rule_filter(self, worker, filters):
         """takes a worker and returns them if they don't match the filter provided.
@@ -576,7 +599,7 @@ class Transformer(object):
         filter: list of dicts
             {'key': rule_set, 'values': ['things_to_match']}
         """
-        LOGGER.debug('filter rule')
+        LOG.debug('filter rule')
         for _filter in filters:
             _filter_hit = False
             if ('match' in _filter and
@@ -588,7 +611,7 @@ class Transformer(object):
             elif 'after' in _filter or 'before' in _filter:
                 term_date = self.apply_rule_set(worker, _filter['rules'])
                 if term_date:
-                    term_date = datetime.strptime(term_date, '%Y-%m-%d')
+                    term_date = datetime.datetime.strptime(term_date, '%Y-%m-%d')
                     if _filter.get('after'):
                         if term_date > self.prep_date_filter(_filter['after']):
                             _filter_hit = True
@@ -596,11 +619,17 @@ class Transformer(object):
                         if term_date < self.prep_date_filter(_filter['before']):
                             _filter_hit = True
             if _filter_hit:
-                LOGGER.debug('hit filter. filter: %s', _filter)
+                LOG.debug('hit filter. filter: %s', _filter)
                 if _filter['action'] == 'keep':
                     return
                 elif _filter['action'] == 'remove':
                     raise FilterMatch(worker)
+
+
+class FilterMatch(Exception):
+    """This exception is raised when the filter rule of the Transformer removes a record"""
+    pass
+
 
 class TransformerException(Exception):
     pass

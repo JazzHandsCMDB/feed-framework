@@ -221,6 +221,35 @@ class JHDBRecordInterface(JHDBI):
         return [r[0] for r in dbc.fetchall()]
 
 
+class JHDBTransformerInterface(JHDBI):
+
+    def __init__(self, app_name, config, **kwargs):
+        self._config = config
+        self._map = self._get_map()
+        super(JHDBTransformerInterface, self).__init__(app_name, **kwargs)
+    
+    def _get_map(self):
+        _map = dict()
+        dbc = self._dbh.get_cursor()
+        queries = self._config.get('queries', QUERIES)
+        for field, qry in queries.items():
+            dbc.execute(qry)
+            _map[field] = {row[0]: row[1] for row in dbc.fetchall()}
+        return _map
+    
+    def get_value_from_map(self, map_name, _key):
+        """takes a map name and the key to retrieve.  Gets the value from the requested
+        map"""
+        if map_name not in self._map:
+            raise JHDBTransformerInterfaceError('Requested map: {} not found'.format(map_name))
+        return self._map[map_name].get(_key)
+
+
 class JHDBIException(Exception):
     "JHDBIException class"
+    pass
+
+
+class JHDBTransformerInterfaceError(JHDBIException):
+    "JHDBTransformerInterfaceError class"
     pass
