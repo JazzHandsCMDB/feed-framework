@@ -28,6 +28,7 @@ from jazzhands_appauthal.db import DatabaseConnection
 # Local imports
 from jh_recsynclib.utils import JHRecordFactory
 
+from .table_pkeys_map import table_pkeys_map
 
 class JHDBI(object):
     """This class contains all the functions for interacting with JazzHands"""
@@ -167,7 +168,6 @@ class JHDBRecordInterface(JHDBI):
         for table, avt in upd.items():
             try:
                 table_pkeys = self.table_pkey_map[table]
-                LOG.debug(table_pkeys)
             except KeyError:
                 raise JHDBIException('Table name not found in table_pkey_map')
             fqry, val_arr = self._prep_qry(table, avt, rec, table_pkeys)
