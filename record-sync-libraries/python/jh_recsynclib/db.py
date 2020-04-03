@@ -28,6 +28,7 @@ from jazzhands_appauthal.db import DatabaseConnection
 # Local imports
 from jh_recsynclib.utils import JHRecordFactory
 
+from .table_pkeys_map import table_pkeys_map
 
 class JHDBI(object):
     """This class contains all the functions for interacting with JazzHands"""
@@ -94,6 +95,7 @@ class JHDBRecordInterface(JHDBI):
         self.record_type = record_type
         self._table_map = None
         self.set_table_map(table_map)
+        self.table_pkey_map = table_pkeys_map
         kwargs.update({
             'psycopg2_cursor_factory': 'DictCursor'
         })
@@ -164,7 +166,11 @@ class JHDBRecordInterface(JHDBI):
         upd = self._get_table_upd_dict(rec, tmap)
         dbc = self.get_cursor(calling_user)
         for table, avt in upd.items():
-            fqry, val_arr = self._prep_qry(table, avt, rec)
+            try:
+                table_pkeys = self.table_pkey_map[table]
+            except KeyError:
+                raise JHDBIException('Table name not found in table_pkey_map')
+            fqry, val_arr = self._prep_qry(table, avt, rec, table_pkeys)
             dbc.execute(fqry, val_arr)
             if dbc.rowcount != 1:
                 self.rollback()
@@ -178,13 +184,15 @@ class JHDBRecordInterface(JHDBI):
                 update.get(table_map[attr], []) + [(attr, val)])
         return update
 
-    def _prep_qry(self, table, avt, rec):
+    def _prep_qry(self, table, avt, rec, table_pkeys):
         """Takes table, attribute/value tuple and the object and
         returns a formated query and value array
         """
         qry = 'UPDATE {t_name} SET {a_names} = {vals} WHERE {w}'
         val_arr = []
-        t_pkeys = self._get_table_pkeys(table)
+        # removed call to _get_table_pkeys to deal with jazzhands_legacy schema migration (EUSAIT-269)
+        # t_pkeys = self._get_table_pkeys(table)
+        # instead manually pass a table_pkey in
         if len(avt) == 1:
             atr_str = avt[0][0]
             val_str = '%s'
@@ -193,15 +201,15 @@ class JHDBRecordInterface(JHDBI):
             atr_str = '(' + ','.join((i[0] for i in avt)) + ')'
             val_str = '(' + ('%s,'*len(avt))[:-1] + ')'
             val_arr += [i[1] for i in avt]
-        if len(t_pkeys) == 0:
-            t_pkeys.append(self._args['conf']['default_pkey'])
-        if len(t_pkeys) == 1:
-            pkey = t_pkeys[0]
+        if len(table_pkeys) == 0:
+            table_pkeys.append(self._args['conf']['default_pkey'])
+        if len(table_pkeys) == 1:
+            pkey = table_pkeys[0]
             w_str = '{} = %s'.format(pkey)
             val_arr.append(rec[pkey])
         else:
             w_l = []
-            for pkey in t_pkeys:
+            for pkey in table_pkeys:
                 w_l.append('{} = %s'.format(pkey))
                 val_arr.append(rec[pkey])
             w_str = ' AND '.join(w_l)
