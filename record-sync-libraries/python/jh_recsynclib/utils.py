@@ -327,10 +327,8 @@ class JHRecordFactory(object):
             SELECT
                 property_value_json
             FROM
-                property
+                smooth_jazz.v_property_value_resynclib
             WHERE
-                property_type = 'jh-recsynclib_rec_def'
-                AND
                 property_name = %s
         """
         dbc.execute(qry, (self.record_type,))
