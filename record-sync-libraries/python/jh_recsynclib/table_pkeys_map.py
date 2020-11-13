@@ -1,4 +1,8 @@
 table_pkeys_map = {
+
+    "smooth_jazz.v_att_cenet_integration": [
+        "attuid"
+    ],
     "account": [
         "account_id"
     ],

@@ -1,3 +1,9 @@
+python-jh-recsynclib (0.2.1-1) UNRELEASED; urgency=medium
+
+  * update jh-recsynclib to pull from smooth_jazz
+
+ -- Jessy Liang <jessy.liang@xandr.com>  Tue,  3 Nov 2020 16:39:00 -0500
+
 python-jh-recsynclib (0.2.0-1) UNRELEASED; urgency=medium
 
   * hard code support for jazzhands_legacy
