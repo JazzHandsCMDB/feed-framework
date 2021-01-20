@@ -322,10 +322,10 @@ class JHRecordFactory(object):
 
     def _get_record_definition_jh(self, dbh):
         """Returns the record definition from JazzHands"""
-        dbc = dbh.get_cursor()
+        dbc = dbh.cursor()
         dbc.callproc('feed_recsynclib.get_record_definition', (self.record_type,))
         rv = dbc.fetchone()
-        if rv is not None:
+        if rv[0] is not None:
             return rv[0]
         else:
             raise JHRecordFactoryException(
