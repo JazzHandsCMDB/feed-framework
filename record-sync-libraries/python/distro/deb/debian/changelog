@@ -1,3 +1,9 @@
+python-jh-recsynclib (0.3.0-1) UNRELEASED; urgency=medium
+
+  * adjust interaction with property table to be stored procedure
+
+ -- Todd Kover <kovert@omniscient.com>  Wed, 20 Jan 2021 14:36:00 -0500
+
 python-jh-recsynclib (0.2.0-1) UNRELEASED; urgency=medium
 
   * hard code support for jazzhands_legacy

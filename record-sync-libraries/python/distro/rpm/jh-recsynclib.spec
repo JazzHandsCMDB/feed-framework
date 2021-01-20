@@ -2,7 +2,7 @@
 %global filelist %{pkgname}-%{version}-filelist
 
 Name:           python2.7-jh-recsynclib
-Version:        0.2.0
+Version:        0.3.0
 Release:        1
 Summary:        JazzHands Record Synchronization Library
 
@@ -27,6 +27,8 @@ python2.7 ./setup.py install --root=%{buildroot} --optimize=1 --record=%{filelis
 %files -f %{filelist}
 
 %changelog
+* Tue Nov  3 2020 Jessy Liang <jessy.liang@xandr.com> 0.2.1
+  - Pull property value from smooth_jazz
 * Fri Apr  3 2020 Todd M Kover <kovert@omniscient.com> 0.2.0
   - Initial Release
 * Fri Oct 13 2017 Ryan D Williams <rdw@drws-office.com> 0.1.0

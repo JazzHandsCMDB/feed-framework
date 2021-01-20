@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # Copyright 2017 Ryan D. Williams
+# Copyright 2020 Todd M. Kover
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +18,7 @@ import subprocess
 from setuptools import setup, find_packages
 
 # this should be pulled in automatically
-version = '0.2.0'
+version = '0.3.0'
 
 with open('README.txt') as f:
     readme = f.read()
