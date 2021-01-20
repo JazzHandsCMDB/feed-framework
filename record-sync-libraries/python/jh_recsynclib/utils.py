@@ -322,21 +322,12 @@ class JHRecordFactory(object):
 
     def _get_record_definition_jh(self, dbh):
         """Returns the record definition from JazzHands"""
-        dbc = dbh.get_cursor()
-        qry = """
-            SELECT
-                property_value_json
-            FROM
-                property
-            WHERE
-                property_type = 'jh-recsynclib_rec_def'
-                AND
-                property_name = %s
-        """
-        dbc.execute(qry, (self.record_type,))
-        try:
-            return dbc.fetchone()[0]
-        except TypeError:
+        dbc = dbh.cursor()
+        dbc.callproc('feed_recsynclib.get_record_definition', (self.record_type,))
+        rv = dbc.fetchone()
+        if rv[0] is not None:
+            return rv[0]
+        else:
             raise JHRecordFactoryException(
                 'no jh-recsynclib_rec_def found for {}'.format(self.record_type))
 
