@@ -18,7 +18,7 @@ import subprocess
 from setuptools import setup, find_packages
 
 # this should be pulled in automatically
-version = '0.3.0'
+version = '0.4.0'
 
 with open('README.txt') as f:
     readme = f.read()
