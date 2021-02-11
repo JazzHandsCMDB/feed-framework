@@ -1,3 +1,9 @@
+python-jh-recsynclib (0.4.0-1) UNRELEASED; urgency=medium
+
+  * update primary key retrieval to have fallbacks
+
+ -- Jessy Liang  Mon, 8 Feb 2021 17:10:00 -0500
+
 python-jh-recsynclib (0.3.0-1) UNRELEASED; urgency=medium
 
   * adjust interaction with property table to be stored procedure
